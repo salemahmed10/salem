@@ -386,11 +386,33 @@ class TradingBot {
         this.updateBalance(0); // Update displays
     }
 
-    async executeBuy(trade) {
-        if (!this.isRunning) return;
-        
-        try {
-            const quantity = trade.amount;
+  async executeBuy(trade) {
+    if (!this.isRunning) return;
+
+    try {
+        const timestamp = Date.now();
+        const quantity = trade.amount;
+        const queryString = symbol=${trade.pair}&side=BUY&type=MARKET&quoteOrderQty=${quantity}&timestamp=${timestamp};
+        const signature = this.generateSignature(queryString);
+
+        const response = await fetch(${config.restEndpoint}/api/v3/order?${queryString}&signature=${signature}, {
+            method: 'POST',
+            headers: {
+                'X-MBX-APIKEY': config.apiKey
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            this.logTrade(أمر شراء تم بنجاح: ${data.executedQty} ${trade.pair});
+        } else {
+            this.logTrade(فشل أمر الشراء: ${data.msg || 'خطأ غير معروف'}, 'error');
+        }
+    } catch (error) {
+        this.logTrade(خطأ في تنفيذ أمر الشراء: ${error.message}, 'error');
+    }
+}
             
             // Here you would add actual Binance API call
             const timestamp = Date.now();
@@ -410,20 +432,33 @@ class TradingBot {
     }
 
     async executeSell(trade) {
-        if (!this.isRunning) return;
-        
-        try {
-            const quantity = trade.amount;
-            
-            // Here you would add actual Binance API call
-            const timestamp = Date.now();
-            const signature = this.generateSignature({
-                symbol: trade.pair,
-                side: 'SELL',
-                type: 'MARKET',
-                quantity: quantity,
-                timestamp: timestamp
-            });
+    if (!this.isRunning) return;
+
+    try {
+        const timestamp = Date.now();
+        const quantity = trade.amount;
+        const queryString = symbol=${trade.pair}&side=SELL&type=MARKET&quoteOrderQty=${quantity}&timestamp=${timestamp};
+        const signature = this.generateSignature(queryString);
+
+        const response = await fetch(${config.restEndpoint}/api/v3/order?${queryString}&signature=${signature}, {
+            method: 'POST',
+            headers: {
+                'X-MBX-APIKEY': config.apiKey
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            this.logTrade(أمر بيع تم بنجاح: ${data.executedQty} ${trade.pair});
+        } else {
+            this.logTrade(فشل أمر البيع: ${data.msg || 'خطأ غير معروف'}, 'error');
+        }
+    } catch (error) {
+        this.logTrade(خطأ في تنفيذ أمر البيع: ${error.message}, 'error');
+    }
+}
+
 
             this.logTrade(`جاري تنفيذ أمر البيع: ${quantity} ${trade.pair} @ ${this.currentPrice}`);
             await this.executeTrades();
@@ -432,11 +467,9 @@ class TradingBot {
         }
     }
 
-    generateSignature(params) {
-        // Implementation would go here - you'll need to implement HMAC-SHA256 signing
-        // This is a placeholder for the actual signature generation
-        return '';
-    }
+    generateSignature(queryString) {
+    return CryptoJS.HmacSHA256(queryString, config.apiSecret).toString(CryptoJS.enc.Hex);
+}
 
     logTrade(message, type = 'info') {
         const logEntry = document.createElement('div');
